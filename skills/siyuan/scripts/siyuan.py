@@ -64,6 +64,7 @@ def get_config() -> dict[str, Any]:
         "openai_model": env.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
         "openai_embedding_dimension": env.get("OPENAI_EMBEDDING_DIMENSION", ""),  # 可选
         "exclude_notebooks": env.get("SIYUAN_EXCLUDE_NOTEBOOKS", ""),
+        "exclude_docs": env.get("SIYUAN_EXCLUDE_DOCS", ""),
         "exclude_paths": env.get("SIYUAN_EXCLUDE_PATHS", ""),
     }
 
@@ -71,10 +72,17 @@ def get_config() -> dict[str, Any]:
 def build_exclude_filter(config: dict[str, Any]) -> str:
     """构建排除过滤的 SQL WHERE 子句"""
     clauses = []
+    # 排除笔记本（box 字段）
     notebooks = config["exclude_notebooks"].strip()
     if notebooks:
         ids = "','".join([nb.strip() for nb in notebooks.split(",") if nb.strip()])
         clauses.append(f"box NOT IN ('{ids}')")
+    # 排除文档（id 字段）
+    docs = config["exclude_docs"].strip()
+    if docs:
+        ids = "','".join([doc.strip() for doc in docs.split(",") if doc.strip()])
+        clauses.append(f"id NOT IN ('{ids}')")
+    # 排除路径（hpath 字段）
     paths = config["exclude_paths"].strip()
     if paths:
         for p in paths.split(","):
@@ -204,6 +212,8 @@ def cmd_config(args: argparse.Namespace):
             print(f"OpenAI Base URL: {config['openai_base_url']}")
         if config['exclude_notebooks']:
             print(f"Exclude Notebooks: {config['exclude_notebooks']}")
+        if config['exclude_docs']:
+            print(f"Exclude Docs: {config['exclude_docs']}")
         if config['exclude_paths']:
             print(f"Exclude Paths: {config['exclude_paths']}")
 
@@ -396,7 +406,32 @@ def cmd_doc(args: argparse.Namespace):
     """文档管理"""
     config = get_config()
 
-    if args.action == "create":
+    if args.action == "list":
+        exclude_filter = build_exclude_filter(config)
+        limit = args.limit or 50
+
+        sql = f"""
+            SELECT id, content, hpath, box, updated
+            FROM blocks
+            WHERE type = 'd'{exclude_filter}
+            ORDER BY updated DESC
+            LIMIT {limit}
+        """.strip().replace("\n", " ")
+
+        result = api_call(config, "/api/query/sql", {"stmt": sql})
+        if not result:
+            print("No documents found")
+            return
+
+        for i, r in enumerate(result, 1):
+            print(f"[{i}] {r['hpath']}")
+            print(f"    id: {r['id']} | updated: {r['updated']}")
+            if i < len(result):
+                print("\n" + "=" * 60 + "\n")
+            else:
+                print()
+
+    elif args.action == "create":
         data = {
             "notebook": args.notebook,
             "path": args.path,
@@ -1010,6 +1045,9 @@ def main():
     # doc 命令
     doc_parser = subparsers.add_parser("doc", help="Document management")
     doc_sub = doc_parser.add_subparsers(dest="action", required=True)
+
+    doc_list = doc_sub.add_parser("list", help="List all documents")
+    doc_list.add_argument("--limit", type=int, help="Result limit (default: 50)")
 
     doc_create = doc_sub.add_parser("create", help="Create document")
     doc_create.add_argument("--notebook", required=True, help="Notebook ID")
