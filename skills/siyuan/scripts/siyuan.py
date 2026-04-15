@@ -62,6 +62,7 @@ def get_config() -> dict[str, Any]:
         "openai_api_key": env.get("OPENAI_API_KEY", ""),
         "openai_base_url": env.get("OPENAI_BASE_URL", ""),
         "openai_model": env.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"),
+        "openai_embedding_dimension": env.get("OPENAI_EMBEDDING_DIMENSION", ""),  # 可选
         "exclude_notebooks": env.get("SIYUAN_EXCLUDE_NOTEBOOKS", ""),
         "exclude_paths": env.get("SIYUAN_EXCLUDE_PATHS", ""),
     }
@@ -129,6 +130,11 @@ def escape_sql_like(s: str) -> str:
 def escape_sql(s: str) -> str:
     """转义 SQL 字符串"""
     return s.replace("'", "''")
+
+
+def get_server_time(config: dict[str, Any]) -> int:
+    """获取思源服务器时间（毫秒级时间戳）"""
+    return api_call(config, "/api/system/currentTime", {})
 
 
 # =============================================================================
@@ -757,7 +763,7 @@ def cmd_sync(args: argparse.Namespace):
     if args.action == "status":
         try:
             # 获取服务器版本和当前时间
-            server_time_ms = api_call(config, "/api/system/currentTime", {})
+            server_time_ms = get_server_time(config)
             from datetime import datetime
             server_time = datetime.fromtimestamp(server_time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -846,7 +852,46 @@ def cmd_index(args: argparse.Namespace):
     config = get_config()
 
     if args.action == "build":
-        build_index(config, force=args.force)
+        # 获取服务器时间
+        server_time = get_server_time(config)
+
+        # 获取所有文档（包含内容）
+        exclude_filter = build_exclude_filter(config)
+        sql = f"""
+            SELECT id, hpath, box, updated
+            FROM blocks
+            WHERE type = 'd'{exclude_filter}
+            ORDER BY updated DESC
+        """.strip().replace("\n", " ")
+
+        docs = api_call(config, "/api/query/sql", {"stmt": sql})
+        if not docs:
+            print("No documents found")
+            return
+
+        # 为每个文档获取完整内容
+        docs_data = []
+        for doc in docs:
+            doc_id = doc["id"]
+            exported = api_call(config, "/api/export/exportMdContent", {"id": doc_id})
+            docs_data.append({
+                "id": doc["id"],
+                "hpath": doc["hpath"],
+                "box": doc["box"],
+                "updated": doc["updated"],
+                "content": exported.get("content", ""),
+            })
+
+        # 准备 OpenAI 配置
+        openai_config = {
+            "openai_api_key": config["openai_api_key"],
+            "openai_base_url": config["openai_base_url"],
+            "openai_model": config["openai_model"],
+            "openai_embedding_dimension": config.get("openai_embedding_dimension", ""),
+        }
+
+        # 调用 build_index
+        build_index(openai_config, docs_data, force=args.force, server_time=server_time)
         print("OK")
 
     elif args.action == "status":
@@ -866,8 +911,17 @@ def cmd_search_semantic(args: argparse.Namespace):
         sys.exit(1)
 
     config = get_config()
+
+    # 准备 OpenAI 配置
+    openai_config = {
+        "openai_api_key": config["openai_api_key"],
+        "openai_base_url": config["openai_base_url"],
+        "openai_model": config["openai_model"],
+        "openai_embedding_dimension": config.get("openai_embedding_dimension", ""),
+    }
+
     limit = args.limit or 8
-    results = semantic_search(config, args.terms, limit)
+    results = semantic_search(openai_config, args.terms, limit)
 
     # 检查是否是错误
     if results and isinstance(results, list) and results[0].get("error"):
