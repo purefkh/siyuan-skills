@@ -577,6 +577,13 @@ def cmd_attr(args: argparse.Namespace):
     """属性管理"""
     config = get_config()
 
+    # 思源内建属性（不需要 custom- 前缀）
+    BUILTIN_ATTRS = {
+        "tags", "name", "alias", "memo", "bookmark",
+        "fold", "heading", "id", "type", "content",
+        "markdown", "created", "updated", "sort"
+    }
+
     if args.action == "get":
         result = api_call(config, "/api/attr/getBlockAttrs", {"id": args.id})
         print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -587,7 +594,8 @@ def cmd_attr(args: argparse.Namespace):
         for attr in args.attrs:
             if "=" in attr:
                 key, value = attr.split("=", 1)
-                if not key.startswith("custom-"):
+                # 内建属性不需要 custom- 前缀
+                if key not in BUILTIN_ATTRS and not key.startswith("custom-"):
                     key = "custom-" + key
                 attrs[key] = value
         if not attrs:
@@ -793,6 +801,31 @@ def cmd_format(args: argparse.Namespace):
         data = {"id": doc_id}
         api_call(config, "/api/format/autoSpace", data)
         print(f"OK (auto-space applied to: {doc_id})")
+
+
+def cmd_tag(args: argparse.Namespace):
+    """标签管理"""
+    config = get_config()
+
+    if args.action == "list":
+        data = {"sort": args.sort, "app": "siyuan", "ignoreMaxListHint": True}
+        result = api_call(config, "/api/tag/getTag", data)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.action == "search":
+        data = {"k": args.keyword}
+        result = api_call(config, "/api/search/searchTag", data)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    elif args.action == "rename":
+        data = {"oldLabel": args.old_label, "newLabel": args.new_label}
+        api_call(config, "/api/tag/renameTag", data)
+        print(f"OK (renamed: {args.old_label} -> {args.new_label})")
+
+    elif args.action == "remove":
+        data = {"label": args.label}
+        api_call(config, "/api/tag/removeTag", data)
+        print(f"OK (removed: {args.label})")
 
 
 # =============================================================================
@@ -1064,6 +1097,23 @@ def main():
     format_auto_space = format_sub.add_parser("auto-space", help="Apply auto-spacing (optimize layout)")
     format_auto_space.add_argument("--id", required=True, help="Document or block ID")
 
+    # tag 命令
+    tag_parser = subparsers.add_parser("tag", help="Tag management")
+    tag_sub = tag_parser.add_subparsers(dest="action", required=True)
+
+    tag_list = tag_sub.add_parser("list", help="List all tags")
+    tag_list.add_argument("--sort", type=int, default=0, help="Sort method (0=alphabet, 1=usage)")
+
+    tag_search = tag_sub.add_parser("search", help="Search tags (for auto-completion)")
+    tag_search.add_argument("keyword", help="Search keyword")
+
+    tag_rename = tag_sub.add_parser("rename", help="Rename tag")
+    tag_rename.add_argument("--old-label", required=True, help="Old tag name")
+    tag_rename.add_argument("--new-label", required=True, help="New tag name")
+
+    tag_remove = tag_sub.add_parser("remove", help="Remove tag")
+    tag_remove.add_argument("label", help="Tag name to remove")
+
     args = parser.parse_args()
 
     # 命令分发
@@ -1102,6 +1152,8 @@ def main():
         cmd_index(args)
     elif args.command == "format":
         cmd_format(args)
+    elif args.command == "tag":
+        cmd_tag(args)
     else:
         parser.print_help()
         sys.exit(1)

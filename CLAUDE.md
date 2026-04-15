@@ -116,3 +116,23 @@ Use semantic search (`search semantic`) when index is available. Fallback order:
 - The skill is installed as a symlink: `~/.claude/skills/siyuan` → this repository
 - **Block-level editing**: SiYuan is block-based - always locate the smallest target block before updating
 - Use `block children` to view document structure and find precise block IDs for editing
+
+## Development Guidelines
+
+### Adding New Features
+
+**Use CLI commands, not curl**: When adding new features or API interactions, always implement them as CLI commands in `scripts/siyuan.py` rather than using raw `curl` calls. This ensures:
+
+1. **Consistent interface** - All operations go through the same CLI tool
+2. **Proper error handling** - Centralized error messages and validation
+3. **Environment management** - Automatic .env configuration loading
+4. **Maintainability** - Easier to update and test
+
+**Example pattern**:
+```bash
+# ❌ Don't do this
+curl -X POST "http://127.0.0.1:6806/api/xxx" ...
+
+# ✅ Do this - add a CLI command
+uv run python scripts/siyuan.py <command> <subcommand> ...
+```

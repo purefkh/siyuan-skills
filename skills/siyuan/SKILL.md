@@ -64,6 +64,7 @@ SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 | **文档管理** | `doc create/rename/delete/move/get-path/get-content` |
 | **块管理** | `block insert/prepend/append/update/delete/move/get/children` |
 | **属性管理** | `attr get/set` |
+| **标签管理** | `tag list/search/rename/remove` |
 | **文件操作** | `file get/put/delete/rename/ls` |
 | **导出** | `export md/resources` |
 | **格式化** | `format auto-space`（优化排版） |
@@ -172,13 +173,13 @@ uv run python scripts/siyuan.py block children --id <doc_id>
 
 ### 创建文档
 
-创建文档也是创建块的过程：
+创建文档也是创建块的过程。**创建时可直接在 Markdown 中写入标签**，标签会自动解析：
 
 ```bash
 uv run python scripts/siyuan.py doc create \
   --notebook 20210817205410-2kvfpfn \
   --path "/test/doc" \
-  --markdown "# 标题\n\n内容"
+  --markdown "# 项目文档\n\n内容 #项目/正在进行#"
 ```
 
 ### 插入块
@@ -321,11 +322,36 @@ uv run python scripts/siyuan.py block get --id xxx
 uv run python scripts/siyuan.py block children --id xxx
 ```
 
+### 标签
+
+```bash
+# 列出所有标签
+uv run python scripts/siyuan.py tag list [--sort 0]
+
+# 搜索标签（自动补全场景）
+uv run python scripts/siyuan.py tag search "关键字"
+
+# 重命名标签（需要管理员权限）
+uv run python scripts/siyuan.py tag rename --old-label "旧标签" --new-label "新标签"
+
+# 删除标签（需要管理员权限）
+uv run python scripts/siyuan.py tag remove "标签"
+```
+
 ### 属性
 
 ```bash
+# 获取属性（包含 tags）
 uv run python scripts/siyuan.py attr get --id xxx
+
+# 设置自定义属性
 uv run python scripts/siyuan.py attr set --id xxx --attrs "key1=value1" "key2=value2"
+
+# 给文档/块设置标签（覆盖 tags 字段）
+uv run python scripts/siyuan.py attr set --id xxx --attrs "tags=标签1,标签2"
+
+# 删除文档的 tags（把 tags 设为空）
+uv run python scripts/siyuan.py attr set --id xxx --attrs "tags="
 ```
 
 ### 文件
@@ -403,6 +429,36 @@ uv run python scripts/siyuan.py format auto-space --id <doc_id>
 **链接方向**：
 - 正向链接：当前块引用了哪些其他块
 - 反向链接：当前块被哪些其他块引用
+
+### 标签语法
+
+**基本语法**：通过一前一后两个 `#` 将标签标识包裹起来。
+
+```markdown
+这是普通段落内容。#标签#
+```
+
+**层级标签**：不同层级之间使用 `/` 分隔，支持多级分类。
+
+```markdown
+#项目/正在进行#
+#技术/前端/React#
+#个人/读书/2024#
+```
+
+**搜索标签**：使用 SQL 查询包含特定标签的内容块。
+
+```markdown
+{{ SELECT * FROM blocks WHERE content LIKE '%#项目#%' AND type = 'p' }}
+```
+
+**标签命名限制**：请勿在标签中使用特殊符号（`* _ [ ] ! \ ` < > & ~ $ ( ) { } = #`）
+
+**标签命名建议**：
+- 避免使用过于宽泛的标签名，如 `#技术#`、`#安全#`、`#笔记#` 等
+- 使用具体、有意义的标签，便于后续筛选和查找
+- 结合层级标签功能，构建清晰的标签体系
+- 示例：`#前端/React/Hooks#`（好）vs `#技术#`（过于宽泛）
 
 ### 嵌入块语法
 
