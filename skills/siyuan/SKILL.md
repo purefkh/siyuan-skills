@@ -173,7 +173,9 @@ uv run python scripts/siyuan.py block children --id <doc_id>
 
 ### 创建文档
 
-创建文档也是创建块的过程。**创建时可直接在 Markdown 中写入标签**，标签会自动解析：
+创建文档有两种方式添加标签：
+
+**方式一**：直接在 Markdown 中写入标签（标签会自动解析）
 
 ```bash
 uv run python scripts/siyuan.py doc create \
@@ -181,6 +183,21 @@ uv run python scripts/siyuan.py doc create \
   --path "/test/doc" \
   --markdown "# 项目文档\n\n内容 #项目/正在进行#"
 ```
+
+**方式二**：创建文档后用 `attr set` 设置标签（覆盖 tags 字段）
+
+```bash
+# 1. 先创建文档
+uv run python scripts/siyuan.py doc create \
+  --notebook 20210817205410-2kvfpfn \
+  --path "/test/doc" \
+  --markdown "# 项目文档\n\n内容"
+
+# 2. 获取返回的 doc_id，设置标签
+uv run python scripts/siyuan.py attr set --id <doc_id> --attrs "tags=项目/正在进行,项目/已完成"
+```
+
+**标签格式**：逗号分隔多个标签，层级标签用 `/` 分隔。
 
 ### 插入块
 
