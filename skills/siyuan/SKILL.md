@@ -66,6 +66,7 @@ SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 | **属性管理** | `attr get/set` |
 | **文件操作** | `file get/put/delete/rename/ls` |
 | **导出** | `export md/resources` |
+| **格式化** | `format auto-space`（优化排版） |
 
 ## 搜索工作流
 
@@ -364,6 +365,22 @@ uv run python scripts/siyuan.py index status
 - 相似度阈值 > 0.5
 - 使用 FAISS IndexIDMap 支持增量更新
 
+### 格式化
+
+思源笔记提供**优化排版**功能，自动在中英文之间添加空格、优化标点符号等。
+
+```bash
+# 优化排版（自动空格）
+uv run python scripts/siyuan.py format auto-space --id <doc_id>
+```
+
+**重要**：优化排版功能会修改文档内容，执行前必须征得用户同意。
+
+**使用场景**：
+- 创建新文档后
+- 修改文档内容后
+- 导入外部 Markdown 内容后
+
 ## 思源笔记内容块语法
 
 ### 核心概念
@@ -497,3 +514,4 @@ uv run python scripts/siyuan.py attr get --id <块ID>
 5. **优先用 ID**：文档和块操作优先使用 ID 而非路径
 6. **排除过滤自动应用**：所有搜索自动应用排除规则（排除笔记本和路径）
 7. **修改后提示同步**：执行修改操作后，应提示用户是否同步，在用户允许后执行 `sync perform`
+8. **优化排版需征得同意**：创建或修改笔记后，应主动询问用户是否需要优化排版（`format auto-space`），仅在用户同意后执行

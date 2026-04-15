@@ -776,6 +776,25 @@ def cmd_sync(args: argparse.Namespace):
         print("Sync triggered (async execution)")
 
 
+def cmd_format(args: argparse.Namespace):
+    """格式化和排版"""
+    config = get_config()
+
+    if args.action == "auto-space":
+        # 获取块信息，找到 rootID（文档 ID）
+        try:
+            block_info = api_call(config, "/api/block/getBlockInfo", {"id": args.id})
+            doc_id = block_info.get("rootID", args.id)
+        except Exception:
+            # 如果获取失败，假设传入的就是文档 ID
+            doc_id = args.id
+
+        # 对文档 ID 应用优化排版
+        data = {"id": doc_id}
+        api_call(config, "/api/format/autoSpace", data)
+        print(f"OK (auto-space applied to: {doc_id})")
+
+
 # =============================================================================
 # Embedding 索引命令（调用 search_embed.py）
 # =============================================================================
@@ -1038,6 +1057,13 @@ def main():
     index_build.add_argument("--force", action="store_true", help="Force full rebuild")
     index_sub.add_parser("status", help="Index status")
 
+    # format 命令
+    format_parser = subparsers.add_parser("format", help="Format and layout")
+    format_sub = format_parser.add_subparsers(dest="action", required=True)
+
+    format_auto_space = format_sub.add_parser("auto-space", help="Apply auto-spacing (optimize layout)")
+    format_auto_space.add_argument("--id", required=True, help="Document or block ID")
+
     args = parser.parse_args()
 
     # 命令分发
@@ -1074,6 +1100,8 @@ def main():
         cmd_sync(args)
     elif args.command == "index":
         cmd_index(args)
+    elif args.command == "format":
+        cmd_format(args)
     else:
         parser.print_help()
         sys.exit(1)
