@@ -844,6 +844,46 @@ def cmd_format(args: argparse.Namespace):
         print(f"OK (auto-space applied to: {doc_id})")
 
 
+def cmd_refs(args: argparse.Namespace):
+    """引用查询（反链检索）"""
+    config = get_config()
+    exclude_filter = build_exclude_filter(config)
+
+    limit = args.limit or 20
+
+    # 查询引用了指定文档/块的所有块（在 markdown 字段中）
+    sql = f"""
+        SELECT id, markdown, type, hpath, box, updated, root_id
+        FROM blocks
+        WHERE markdown LIKE '%(({args.id}%'
+        {exclude_filter}
+        ORDER BY updated DESC
+        LIMIT {limit}
+    """.strip().replace("\n", " ")
+
+    result = api_call(config, "/api/query/sql", {"stmt": sql})
+    if not result:
+        print("No references found")
+        return
+
+    for i, r in enumerate(result, 1):
+        print(f"[{i}] {r['hpath']}")
+        print(f"    id: {r['id']} | type: {r['type']} | updated: {r['updated']}")
+        markdown = r.get("markdown", "")
+        # 高亮引用部分
+        if f"(({args.id}" in markdown:
+            # 提取包含引用的行
+            lines = markdown.split('\n')
+            for line in lines:
+                if f"(({args.id}" in line:
+                    print(f"    ref: {line.strip()[:200]}")
+                    break
+        if i < len(result):
+            print("\n" + "=" * 60 + "\n")
+        else:
+            print()
+
+
 def cmd_tag(args: argparse.Namespace):
     """标签管理"""
     config = get_config()
@@ -1121,6 +1161,11 @@ def main():
     attr_set.add_argument("--id", required=True, help="Block ID")
     attr_set.add_argument("--attrs", nargs="+", required=True, help="Attributes (KEY=VALUE format)")
 
+    # refs 命令
+    refs_parser = subparsers.add_parser("refs", help="Reference search (backlinks)")
+    refs_parser.add_argument("--id", required=True, help="Target document/block ID")
+    refs_parser.add_argument("--limit", type=int, help="Result limit (default: 20)")
+
     # file 命令
     file_parser = subparsers.add_parser("file", help="File operations")
     file_sub = file_parser.add_subparsers(dest="action", required=True)
@@ -1230,6 +1275,8 @@ def main():
         cmd_block(args)
     elif args.command == "attr":
         cmd_attr(args)
+    elif args.command == "refs":
+        cmd_refs(args)
     elif args.command == "file":
         cmd_file(args)
     elif args.command == "export":

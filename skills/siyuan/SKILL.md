@@ -67,6 +67,7 @@ SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 | **块管理** | `block insert/prepend/append/update/delete/move/get/children/assets` |
 | **属性管理** | `attr get/set` |
 | **标签管理** | `tag list/search/rename/remove` |
+| **引用查询** | `refs --id <id>` |
 | **资源管理** | `asset get-path` |
 | **文件操作** | `file get/put/delete/rename/ls` |
 | **导出** | `export md/resources` |
@@ -350,6 +351,21 @@ uv run python scripts/siyuan.py block assets --id xxx
 uv run python scripts/siyuan.py asset get-path --id <block_id>
 uv run python scripts/siyuan.py asset get-path --id <block_id> --asset assets/image.png
 ```
+
+### 引用查询
+
+```bash
+# 查询引用了指定文档/块的所有块（反链检索）
+uv run python scripts/siyuan.py refs --id <block_id>
+
+# 限制返回数量
+uv run python scripts/siyuan.py refs --id <block_id> --limit 10
+```
+
+**使用场景**：
+- 查看哪些笔记引用了当前文档（类似维基百科的"链入页面"）
+- 删除文档前检查有哪些地方引用了它
+- 分析知识关联关系
 
 ### 标签
 

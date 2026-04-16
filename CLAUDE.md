@@ -15,7 +15,7 @@ This is a Claude Code skill for managing SiYuan Note (思源笔记) - a local no
 - Uses `argparse` for command structure with subcommands
 - Uses `urllib.request` for HTTP API calls to SiYuan
 - Manual .env parsing (no python-dotenv dependency)
-- Commands: config, search, notebook, doc, block, attr, file, export, system, sync, index, sql
+- Commands: config, search, notebook, doc, block, attr, refs, file, export, system, sync, index, sql
 
 **`skills/siyuan/scripts/search_embed.py`** - Semantic search module
 - Requires `openai` and `faiss-cpu` packages
