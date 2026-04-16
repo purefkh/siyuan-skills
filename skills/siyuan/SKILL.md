@@ -63,7 +63,7 @@ SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 | **搜索 - 语义** | `search semantic`（自动增量更新索引） |
 | **搜索 - 最近** | `search recent` |
 | **笔记本管理** | `notebook list/create/rename/delete/open/close` |
-| **文档管理** | `doc list/create/rename/delete/move/get-path/get-content` |
+| **文档管理** | `doc list/create/rename/delete/move/get-path/get-content/icon` |
 | **块管理** | `block insert/prepend/append/update/delete/move/get/children/assets` |
 | **属性管理** | `attr get/set` |
 | **标签管理** | `tag list/search/rename/remove` |
@@ -177,7 +177,7 @@ uv run python scripts/siyuan.py block children --id <doc_id>
 
 ### 创建文档
 
-创建文档有两种方式添加标签：
+创建文档后，可以根据内容设置合适的 Emoji 图标：
 
 **方式一**：直接在 Markdown 中写入标签（标签会自动解析）
 
@@ -186,9 +186,12 @@ uv run python scripts/siyuan.py doc create \
   --notebook 20210817205410-2kvfpfn \
   --path "/test/doc" \
   --markdown "# 项目文档\n\n内容 #项目/正在进行#"
+
+# 创建后设置图标（可选）
+uv run python scripts/siyuan.py doc icon --id <doc_id> --icon "1f4dd"  # 📝 笔记图标
 ```
 
-**方式二**：创建文档后用 `attr set` 设置标签（覆盖 tags 字段）
+**方式二**：【建议】创建文档后用 `attr set` 设置标签（覆盖 tags 字段）
 
 ```bash
 # 1. 先创建文档
@@ -197,8 +200,9 @@ uv run python scripts/siyuan.py doc create \
   --path "/test/doc" \
   --markdown "# 项目文档\n\n内容"
 
-# 2. 获取返回的 doc_id，设置标签
+# 2. 获取返回的 doc_id，设置标签和图标
 uv run python scripts/siyuan.py attr set --id <doc_id> --attrs "tags=项目/正在进行,项目/已完成"
+uv run python scripts/siyuan.py doc icon --id <doc_id> --icon "1f680"  # 🚀 火箭图标
 ```
 
 **标签格式**：逗号分隔多个标签，层级标签用 `/` 分隔。
@@ -328,7 +332,10 @@ uv run python scripts/siyuan.py doc delete --id xxx --force
 uv run python scripts/siyuan.py doc move --from-ids id1,id2 --to-id xxx
 uv run python scripts/siyuan.py doc get-path --id xxx
 uv run python scripts/siyuan.py doc get-content --id xxx
+uv run python scripts/siyuan.py doc icon --id xxx --icon "1f601"
 ```
+
+**设置文档图标**：使用 emoji 的 Unicode 编码设置文档图标。
 
 ### 块
 
@@ -616,3 +623,4 @@ uv run python scripts/siyuan.py attr get --id <块ID>
 6. **排除过滤自动应用**：所有搜索自动应用排除规则（排除笔记本和路径）
 7. **修改后提示同步**：执行修改操作后，应提示用户是否同步，在用户允许后执行 `sync perform`
 8. **优化排版需征得同意**：创建或修改笔记后，应主动询问用户是否需要优化排版（`format auto-space`），仅在用户同意后执行
+9. **创建文档后设置图标**：创建新文档后，应根据文档内容主动建议并设置合适的 Emoji 图标（使用 `doc icon --id <doc_id> --icon <emoji_code>`）

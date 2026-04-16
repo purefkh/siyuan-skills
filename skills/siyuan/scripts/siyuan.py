@@ -485,6 +485,12 @@ def cmd_doc(args: argparse.Namespace):
             "content": result.get("content")
         }, ensure_ascii=False))
 
+    elif args.action == "icon":
+        # 设置文档图标（emoji）
+        data = {"id": args.id, "attrs": {"icon": args.icon}}
+        api_call(config, "/api/attr/setBlockAttrs", data)
+        print(f"OK (icon set: {args.icon})")
+
 
 def cmd_block(args: argparse.Namespace):
     """块管理"""
@@ -622,7 +628,7 @@ def cmd_attr(args: argparse.Namespace):
     BUILTIN_ATTRS = {
         "tags", "name", "alias", "memo", "bookmark",
         "fold", "heading", "id", "type", "content",
-        "markdown", "created", "updated", "sort"
+        "markdown", "created", "updated", "sort", "icon"
     }
 
     if args.action == "get":
@@ -1111,6 +1117,10 @@ def main():
 
     doc_content = doc_sub.add_parser("get-content", help="Get document full content")
     doc_content.add_argument("--id", required=True, help="Document ID")
+
+    doc_icon = doc_sub.add_parser("icon", help="Set document icon (emoji)")
+    doc_icon.add_argument("--id", required=True, help="Document ID")
+    doc_icon.add_argument("--icon", required=True, help="Emoji icon (e.g. 1f601 for 😀)")
 
     # block 命令
     block_parser = subparsers.add_parser("block", help="Block management")
