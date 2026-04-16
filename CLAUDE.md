@@ -22,7 +22,8 @@ This is a Claude Code skill for managing SiYuan Note (思源笔记) - a local no
 - Chunk-based indexing (1000 chars per chunk, 20% overlap)
 - FAISS IndexIDMap for incremental updates
 - Min score threshold: 0.5
-- Index stored in `.index/` directory (metadata.json + index.faiss)
+- SQLite metadata storage for tracking document changes
+- Index stored in `.index/` directory (index.db + index.faiss)
 
 ### Key Design Decisions
 
@@ -92,8 +93,10 @@ SIYUAN_API_TOKEN=your-token-here
 OPENAI_API_KEY=sk-xxx
 OPENAI_BASE_URL=              # Optional, for custom endpoints
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_DIMENSION=   # Optional, dimension override
 
 SIYUAN_EXCLUDE_NOTEBOOKS=     # Comma-separated notebook IDs
+SIYUAN_EXCLUDE_DOCS=          # Comma-separated document IDs
 SIYUAN_EXCLUDE_PATHS=/daily note,/templates
 ```
 

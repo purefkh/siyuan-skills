@@ -44,9 +44,11 @@ SIYUAN_API_TOKEN=your-token-here
 OPENAI_API_KEY=sk-xxx
 OPENAI_BASE_URL=              # 可选，自定义端点
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_DIMENSION=   # 可选，向量维度覆盖
 
 # 排除规则（API 层面过滤）
 SIYUAN_EXCLUDE_NOTEBOOKS=     # 排除的笔记本 ID（逗号分隔）
+SIYUAN_EXCLUDE_DOCS=          # 排除的文档 ID（逗号分隔）
 SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 ```
 
@@ -61,10 +63,11 @@ SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 | **搜索 - 语义** | `search semantic`（自动增量更新索引） |
 | **搜索 - 最近** | `search recent` |
 | **笔记本管理** | `notebook list/create/rename/delete/open/close` |
-| **文档管理** | `doc create/rename/delete/move/get-path/get-content` |
-| **块管理** | `block insert/prepend/append/update/delete/move/get/children` |
+| **文档管理** | `doc list/create/rename/delete/move/get-path/get-content` |
+| **块管理** | `block insert/prepend/append/update/delete/move/get/children/assets` |
 | **属性管理** | `attr get/set` |
 | **标签管理** | `tag list/search/rename/remove` |
+| **资源管理** | `asset get-path` |
 | **文件操作** | `file get/put/delete/rename/ls` |
 | **导出** | `export md/resources` |
 | **格式化** | `format auto-space`（优化排版） |
@@ -337,6 +340,15 @@ uv run python scripts/siyuan.py block delete --id xxx --force
 uv run python scripts/siyuan.py block move --id xxx --parent-id xxx
 uv run python scripts/siyuan.py block get --id xxx
 uv run python scripts/siyuan.py block children --id xxx
+uv run python scripts/siyuan.py block assets --id xxx
+```
+
+### 资源
+
+```bash
+# 获取资源文件的本地绝对路径
+uv run python scripts/siyuan.py asset get-path --id <block_id>
+uv run python scripts/siyuan.py asset get-path --id <block_id> --asset assets/image.png
 ```
 
 ### 标签
