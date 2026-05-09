@@ -32,6 +32,8 @@ def get_db_connection() -> sqlite3.Connection:
 
 def init_db():
     """初始化数据库表"""
+    import numpy as np
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -54,6 +56,7 @@ def init_db():
             chunk_index INTEGER,
             content TEXT,
             faiss_id INTEGER,
+            embedding BLOB,
             FOREIGN KEY (doc_id) REFERENCES documents(doc_id)
         )
     """)
@@ -61,6 +64,15 @@ def init_db():
     # 创建索引
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_faiss_id ON chunks(faiss_id)")
+
+    # 检查是否需要添加 embedding 列（兼容旧数据库）
+    cursor.execute("PRAGMA table_info(chunks)")
+    columns = [row["name"] for row in cursor.fetchall()]
+    if "embedding" not in columns:
+        print("[Migrating database] Adding embedding column to chunks table...", file=sys.stderr)
+        cursor.execute("ALTER TABLE chunks ADD COLUMN embedding BLOB")
+        conn.commit()
+        print("[Migration complete] Database schema updated", file=sys.stderr)
 
     conn.commit()
     conn.close()
@@ -322,43 +334,40 @@ def build_index(openai_config: dict[str, Any], docs_data: List[dict],
     else:
         new_embeddings = []
 
-    # 8. 从旧 FAISS 索引提取未变化文档的 embeddings
+    # 8. 从数据库提取未变化文档的 embeddings（不再使用 FAISS reconstruct）
+    import numpy as np
     old_embeddings_map = {}  # faiss_id -> embedding
-    if FAISS_INDEX_FILE.exists() and not force:
-        old_index = faiss.read_index(str(FAISS_INDEX_FILE))
-        # 获取当前数据库中所有 faiss_id（已排除变化文档的）
-        cursor.execute("SELECT faiss_id FROM chunks")
-        all_current_faiss_ids = set(row["faiss_id"] for row in cursor.fetchall())
+    if not force:
+        # 获取当前数据库中所有未变化文档的 chunks（含 embedding）
+        placeholders = ",".join("?" * len(updated_doc_ids))
+        cursor.execute(f"""
+            SELECT faiss_id, embedding
+            FROM chunks
+            WHERE doc_id NOT IN ({placeholders})
+            AND embedding IS NOT NULL
+        """, updated_doc_ids)
 
-        # 排除需要删除的旧 faiss_id
-        unchanged_faiss_ids = all_current_faiss_ids - set(old_faiss_ids_to_remove)
+        for row in cursor.fetchall():
+            faiss_id = row["faiss_id"]
+            embedding_bytes = row["embedding"]
+            if embedding_bytes:
+                # 将 bytes 转换回 numpy 数组
+                embedding = np.frombuffer(embedding_bytes, dtype="float32")
+                old_embeddings_map[faiss_id] = embedding
 
-        if unchanged_faiss_ids:
-            # 从旧索引提取 embeddings
-            for faiss_id in unchanged_faiss_ids:
-                try:
-                    vector = old_index.reconstruct(int(faiss_id))
-                    old_embeddings_map[faiss_id] = vector
-                except Exception as e:
-                    print(f"[Warning] Failed to reconstruct faiss_id {faiss_id}: {e}", file=sys.stderr)
+    print(f"[Incremental update] Reusing {len(old_embeddings_map)} old embeddings from database", file=sys.stderr)
 
-    print(f"[Incremental update] Reusing {len(old_embeddings_map)} old embeddings", file=sys.stderr)
-
-    # 9. 将新 chunks 写入数据库
+    # 9. 将新 chunks 写入数据库（保存 embedding 到 SQLite）
+    import numpy as np
     next_faiss_id = get_next_faiss_id(conn)
     for chunk, embedding in zip(chunks_to_add, new_embeddings):
+        # 将 numpy 数组转换为 bytes 存储
+        embedding_bytes = np.array(embedding, dtype="float32").tobytes()
         cursor.execute("""
-            INSERT INTO chunks (chunk_id, doc_id, chunk_index, content, faiss_id)
-            VALUES (?, ?, ?, ?, ?)
-        """, (chunk["chunk_id"], chunk["doc_id"], chunk["chunk_index"], chunk["content"], next_faiss_id))
+            INSERT INTO chunks (chunk_id, doc_id, chunk_index, content, faiss_id, embedding)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (chunk["chunk_id"], chunk["doc_id"], chunk["chunk_index"], chunk["content"], next_faiss_id, embedding_bytes))
         next_faiss_id += 1
-
-    # 写入文档信息
-    for doc in docs_to_process:
-        cursor.execute("""
-            INSERT OR REPLACE INTO documents (doc_id, hpath, box, updated, embedding_time)
-            VALUES (?, ?, ?, ?, ?)
-        """, (doc["id"], doc["hpath"], doc["box"], doc["updated"], server_time))
 
     conn.commit()
 
@@ -380,9 +389,9 @@ def build_index(openai_config: dict[str, Any], docs_data: List[dict],
                 final_embeddings.append(new_embeddings[new_embeddings_index])
                 new_embeddings_index += 1
             else:
-                # 兜底：重新生成（不应该到这里）
+                # 兜底：重新生成（理论上不应该到这里）
                 print(f"[Warning] Missing embedding for chunk {chunk['chunk_id']}, regenerating...", file=sys.stderr)
-                embedding = build_embeddings(config, [chunk["content"]])[0]
+                embedding = build_embeddings(openai_config, [chunk["content"]])[0]
                 final_embeddings.append(embedding)
 
     print(f"Building FAISS index with {len(final_embeddings)} total chunks...", file=sys.stderr)
@@ -399,14 +408,25 @@ def build_index(openai_config: dict[str, Any], docs_data: List[dict],
         # 使用连续的 ID (0, 1, 2, ...)
         index_id_map.add_with_ids(embeddings_array, np.arange(len(final_embeddings)))
 
-        # 13. 更新数据库中的 faiss_id 为连续的 ID
+        # 13. 更新数据库：faiss_id 为连续的 ID，并保存所有 embeddings
         for i, chunk in enumerate(all_chunks):
-            cursor.execute("UPDATE chunks SET faiss_id = ? WHERE chunk_id = ?", (i, chunk["chunk_id"]))
-        conn.commit()
+            # 保存 embedding 到数据库（包括复用的旧 embedding）
+            embedding_bytes = np.array(final_embeddings[i], dtype="float32").tobytes()
+            cursor.execute("UPDATE chunks SET faiss_id = ?, embedding = ? WHERE chunk_id = ?",
+                         (i, embedding_bytes, chunk["chunk_id"]))
 
         # 14. 保存 FAISS 索引
         INDEX_DIR.mkdir(parents=True, exist_ok=True)
         faiss.write_index(index_id_map, str(FAISS_INDEX_FILE))
+
+        # 15. FAISS 索引成功保存后，更新文档的 embedding_time
+        for doc in docs_to_process:
+            cursor.execute("""
+                INSERT OR REPLACE INTO documents (doc_id, hpath, box, updated, embedding_time)
+                VALUES (?, ?, ?, ?, ?)
+            """, (doc["id"], doc["hpath"], doc["box"], doc["updated"], server_time))
+
+        conn.commit()
 
     conn.close()
 
