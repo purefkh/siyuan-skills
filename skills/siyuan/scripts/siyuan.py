@@ -479,11 +479,12 @@ def cmd_doc(args: argparse.Namespace):
 
     elif args.action == "get-content":
         result = api_call(config, "/api/export/exportMdContent", {"id": args.id})
-        print(json.dumps({
-            "id": args.id,
-            "hpath": result.get("hpath"),
-            "content": result.get("content")
-        }, ensure_ascii=False))
+        hpath = result.get("hpath", "")
+        content = result.get("content", "")
+        print(f"Path: {hpath}")
+        print(f"    id: {args.id}")
+        print()
+        print(content)
 
     elif args.action == "icon":
         # 设置文档图标（emoji）

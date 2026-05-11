@@ -138,9 +138,11 @@ uv run python scripts/siyuan.py sql "SELECT id, hpath FROM blocks WHERE type = '
 
 ## 编辑工作流
 
-**核心理念**：思源笔记基于**块**（Block）设计，所有内容（段落、标题、列表项、代码块等）都是独立的块。**关键字搜索**直接返回块 ID，可以直接精准更新该块。
+**核心理念**：思源笔记基于**块**（Block）设计，所有内容（段落、标题、列表项、代码块等）都是独立的块。
 
-### 块级编辑流程
+**关键点**：块编辑**必须结合搜索使用** —— 先通过搜索找到精准的块 ID，再用该 ID 进行编辑。不要猜测或手动构造块 ID。
+
+### 块级编辑流程（搜索 + 编辑）⭐
 
 ```bash
 # 1. search keyword → 找到精准的块 id
@@ -152,11 +154,11 @@ uv run python scripts/siyuan.py search keyword "要修改的内容" --type p
 #     doc: 20260410155541-xxxxxx | box: 20231211105622-ztp25z5
 #     块内容...
 
-# 2. 直接用块 id 更新
+# 2. 直接用搜索返回的块 id 更新
 uv run python scripts/siyuan.py block update --id 20260410155541-8dqsqvr --data "新内容"
 ```
 
-**就这么简单**：关键字搜索 → 找到 `id` → 更新
+**工作流**：搜索 → 复制 `id` → 编辑
 
 ### 块类型过滤
 
@@ -622,7 +624,7 @@ uv run python scripts/siyuan.py attr get --id <块ID>
 ## 关键规则
 
 1. **路径确认优先**：创建文档前如果不确定笔记本 ID 或路径，必须先执行 `notebook list` 查看可用笔记本
-2. **块级编辑优先**：思源笔记是块级设计，修改内容时应先精准定位到最小块，然后更新该块
+2. **块编辑必须结合搜索**：块编辑前必须先通过 `search keyword` 找到精准的块 ID，不要猜测或手动构造块 ID
 3. **先搜索再操作**：编辑或删除前，先搜索确认目标正确
 4. **删除必须确认**：CLI 需 `--force`，Claude 需向用户确认
 5. **语义搜索优先级**：有索引用 `search semantic`，否则用 `search doc`
