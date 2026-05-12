@@ -185,9 +185,7 @@ uv run python scripts/siyuan.py block children --id <doc_id>
 uv run python scripts/siyuan.py notebook list
 ```
 
-创建文档后，可以根据内容设置合适的 Emoji 图标：
-
-**方式一**：【推荐】创建文档后用 `attr set` 设置标签（覆盖 tags 字段）
+创建文档后，可以设置标签和合适的 Emoji 图标：
 
 ```bash
 # 1. 先创建文档
@@ -199,18 +197,6 @@ uv run python scripts/siyuan.py doc create \
 # 2. 获取返回的 doc_id，设置标签和图标
 uv run python scripts/siyuan.py attr set --id <doc_id> --attrs "tags=项目/正在进行,项目/已完成"
 uv run python scripts/siyuan.py doc icon --id <doc_id> --icon "1f680"  # 🚀 火箭图标
-```
-
-**方式二**：直接在 Markdown 中写入标签（标签会自动解析）
-
-```bash
-uv run python scripts/siyuan.py doc create \
-  --notebook 20210817205410-2kvfpfn \
-  --path "/test/doc" \
-  --markdown "# 项目文档\n\n内容 #项目/正在进行#"
-
-# 创建后设置图标（可选）
-uv run python scripts/siyuan.py doc icon --id <doc_id> --icon "1f4dd"  # 📝 笔记图标
 ```
 
 **标签格式**：逗号分隔多个标签，层级标签用 `/` 分隔。
@@ -491,6 +477,10 @@ uv run python scripts/siyuan.py format auto-space --id <doc_id>
 - 反向链接：当前块被哪些其他块引用
 
 ### 标签语法
+
+> **注意**：推荐通过 `attr set` 设置标签，不推荐使用 `#标签#` 语法在 Markdown 中嵌入标签。
+>
+> 思源笔记也支持 `#标签#` 语法，标签会在渲染时自动解析并归入属性，但直接嵌入正文不利于后续批量管理和修改。
 
 **基本语法**：通过一前一后两个 `#` 将标签标识包裹起来。
 
