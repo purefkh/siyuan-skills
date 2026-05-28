@@ -492,6 +492,48 @@ def cmd_doc(args: argparse.Namespace):
         api_call(config, "/api/attr/setBlockAttrs", data)
         print(f"OK (icon set: {args.icon})")
 
+    elif args.action == "tree":
+        _cmd_doc_tree(config, args.notebook, args.depth)
+
+
+def _cmd_doc_tree(config: dict, notebook_id: str | None, max_depth: int):
+    """展示文档树"""
+    if notebook_id:
+        notebooks = [{"id": notebook_id, "name": notebook_id}]
+    else:
+        result = api_call(config, "/api/notebook/lsNotebooks", {})
+        notebooks = [nb for nb in result.get("notebooks", []) if not nb.get("closed")]
+
+    for nb in notebooks:
+        print(f"📁 [{nb['id']}] {nb['name']}")
+        tree = api_call(config, "/api/filetree/listDocTree", {"notebook": nb["id"], "path": "/"})
+        if not tree or not tree.get("tree"):
+            print("  (empty)")
+            continue
+        _print_tree_nodes(config, tree["tree"], nb["id"], "", max_depth, 0)
+
+
+def _print_tree_nodes(config: dict, nodes: list, notebook_id: str, prefix: str, max_depth: int, current_depth: int):
+    """递归打印文档树节点"""
+    for i, node in enumerate(nodes):
+        is_last = i == len(nodes) - 1
+        connector = "└── " if is_last else "├── "
+        child_prefix = prefix + ("    " if is_last else "│   ")
+
+        # 获取文档路径和标题
+        try:
+            hpath = api_call(config, "/api/filetree/getHPathByID", {"id": node["id"]})
+            title = hpath.split("/")[-1] if hpath else node["id"]
+        except Exception:
+            title = node["id"]
+
+        has_children = node.get("children") and current_depth < max_depth - 1
+        icon = "📁" if has_children or node.get("children") else "📄"
+        print(f"{prefix}{connector}{icon} {title}  [{node['id']}]")
+
+        if node.get("children") and current_depth < max_depth - 1:
+            _print_tree_nodes(config, node["children"], notebook_id, child_prefix, max_depth, current_depth + 1)
+
 
 def cmd_block(args: argparse.Namespace):
     """块管理"""
@@ -1122,6 +1164,10 @@ def main():
     doc_icon = doc_sub.add_parser("icon", help="Set document icon (emoji)")
     doc_icon.add_argument("--id", required=True, help="Document ID")
     doc_icon.add_argument("--icon", required=True, help="Emoji icon (e.g. 1f601 for 😀)")
+
+    doc_tree = doc_sub.add_parser("tree", help="Show document tree")
+    doc_tree.add_argument("--notebook", help="Notebook ID (show all if omitted)")
+    doc_tree.add_argument("--depth", type=int, default=3, help="Max depth (default: 3)")
 
     # block 命令
     block_parser = subparsers.add_parser("block", help="Block management")

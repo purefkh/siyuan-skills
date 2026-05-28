@@ -63,7 +63,7 @@ SIYUAN_EXCLUDE_PATHS=/daily note,/templates  # 排除的路径前缀
 | **搜索 - 语义** | `search semantic`（自动增量更新索引） |
 | **搜索 - 最近** | `search recent` |
 | **笔记本管理** | `notebook list/create/rename/delete/open/close` |
-| **文档管理** | `doc list/create/rename/delete/move/get-path/get-content/icon` |
+| **文档管理** | `doc list/create/rename/delete/move/get-path/get-content/icon/tree` |
 | **块管理** | `block insert/prepend/append/update/delete/move/get/children/assets` |
 | **属性管理** | `attr get/set` |
 | **标签管理** | `tag list/search/rename/remove` |
@@ -179,11 +179,25 @@ uv run python scripts/siyuan.py block children --id <doc_id>
 
 ### 创建文档
 
-**路径确认**：如果不确定目标笔记本 ID 或路径，先执行 `notebook list` 查看可用笔记本：
+**路径确认**：如果不确定目标笔记本 ID 或路径，先执行 `notebook list` 查看可用笔记本，再用 `doc tree` 查看文档树结构：
 
 ```bash
+# 1. 查看可用笔记本
 uv run python scripts/siyuan.py notebook list
+
+# 2. 查看指定笔记本的文档树（可指定深度）
+uv run python scripts/siyuan.py doc tree --notebook 20231211105622-ztp25z5 --depth 3
 ```
+
+文档树输出会显示每个文档的 ID，例如：
+```
+📁 [20231211105622-ztp25z5] 工作
+├── 📁 项目  [20231227162419-ssy0zvx]
+│   ├── 📄 Davinci  [20231227162452-at75abf]
+│   └── 📁 Alex  [20251113084716-x3m4e0k]
+```
+
+这样就能精准找到 `/项目/Alex` 对应的文档 ID 是 `20251113084716-x3m4e0k`。
 
 创建文档后，可以设置标签和合适的 Emoji 图标：
 
@@ -320,6 +334,7 @@ uv run python scripts/siyuan.py notebook close --id xxx
 ### 文档
 
 ```bash
+uv run python scripts/siyuan.py doc tree [--notebook xxx] [--depth N]
 uv run python scripts/siyuan.py doc create --notebook xxx --path "/foo/bar" --markdown "内容"
 uv run python scripts/siyuan.py doc rename --id xxx --title "新标题"
 uv run python scripts/siyuan.py doc delete --id xxx --force
@@ -613,7 +628,7 @@ uv run python scripts/siyuan.py attr get --id <块ID>
 
 ## 关键规则
 
-1. **路径确认优先**：创建文档前如果不确定笔记本 ID 或路径，必须先执行 `notebook list` 查看可用笔记本
+1. **路径确认优先**：创建文档前如果不确定笔记本 ID 或路径，必须先执行 `notebook list` 查看可用笔记本，再用 `doc tree` 查看文档树结构获取精准的文档 ID
 2. **块编辑必须结合搜索**：块编辑前必须先通过 `search keyword` 找到精准的块 ID，不要猜测或手动构造块 ID
 3. **先搜索再操作**：编辑或删除前，先搜索确认目标正确
 4. **删除必须确认**：CLI 需 `--force`，Claude 需向用户确认
